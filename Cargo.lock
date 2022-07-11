@@ -1058,7 +1058,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "passport-scrape"
+name = "passport_scrape"
 version = "0.1.0"
 dependencies = [
  "chrono",

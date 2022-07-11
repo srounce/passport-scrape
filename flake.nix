@@ -26,11 +26,13 @@
         devShell = pkgs.mkShell {
           buildInputs = [
             (rustVersion.override {
-              extensions = [ "rust-src" ];
+              extensions = [ "rust-src" "rustfmt" ];
             })
             pkgs.rust-analyzer
             pkgs.openssl
             pkgs.pkg-config
+
+            pkgs.treefmt
           ];
         };
       }
