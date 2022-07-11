@@ -1,12 +1,13 @@
 use std::process;
 
-use tokio;
+use tokio::time;
 use reqwest;
 use scraper::{Html, Selector};
-use notify_rust::Notification;
+use notify_rust::{Notification, Timeout};
 
 const BUSY_MESSAGE: &str = "Sorry, there are no available appointments";
 
+#[derive(Debug)]
 enum ScrapeError {
     Unknown(String),
 
@@ -20,9 +21,24 @@ enum ScrapeError {
 
 #[tokio::main]
 async fn main() {
-    match get_urgent().await {
-        Ok(_) => process::exit(0),
-        Err(_) => process::exit(1),
+    let mut last_time = time::Instant::now();
+
+    loop {
+        let next_time = last_time + time::Duration::from_secs(10);
+        let mut interval = time::interval(next_time - last_time);
+        
+        last_time = time::Instant::now();
+
+        match get_urgent().await {
+            Ok(_) => process::exit(0),
+            Err(e) => {
+                let now = chrono::Local::now();
+                eprintln!("[{now}] Failure: {e:?}", now = now.format("%Y-%m-%d %H:%M:%S"));
+            },
+        };
+        
+        interval.tick().await;
+        interval.tick().await;
     };
 }
 
@@ -31,7 +47,7 @@ async fn get_urgent() -> Result<(), ScrapeError> {
         .await
         .map_err(|err| ScrapeError::Unknown(err.to_string()))?;
 
-    println!("Response status: {}", response.status());
+    eprintln!("Response status: {}", response.status());
 
     let document = async {
         let body = response.text()
@@ -53,12 +69,18 @@ async fn get_urgent() -> Result<(), ScrapeError> {
         return Err(ScrapeError::AppointmentsUnavailable)
     }
 
-    Notification::new()
-        .summary("Passport appointments")
-        .body("Passport appointments available!")
-        .timeout(0)
-        .show()
-        .map_err(|err| ScrapeError::NotificationFailure(err.to_string()))?;
+    {
+        let message_body = {
+            let now = chrono::Local::now();
+            format!("{}: Passport appointments available!", now.format("%y-%m-%d %h:%m:%s"))
+        };
+        Notification::new()
+            .summary("Passport appointments")
+            .body(&message_body)
+            .timeout(Timeout::Never)
+            .show()
+            .map_err(|err| ScrapeError::NotificationFailure(err.to_string()))?;
+    }
 
     return Ok(())
 }
