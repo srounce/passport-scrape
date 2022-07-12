@@ -29,9 +29,16 @@
 
           src = ./.;
 
+          nativeBuildInputs = [
+          ] ++ lib.optionals stdenv.isLinux [
+            pkgs.pkg-config
+          ];
+
           buildInputs = [
             pkgs.openssl
-          ] ++ lib.optionals stdenv.isDarwin [ apple_sdk.frameworks.Cocoa ];
+          ] ++ lib.optionals stdenv.isDarwin [
+            apple_sdk.frameworks.Cocoa
+          ];
 
           NIX_CFLAGS_COMPILE = [ ] ++ lib.optionals stdenv.isDarwin [
             # disable modules, otherwise we get redeclaration errors
@@ -50,15 +57,17 @@
         formatter = pkgs.nixpkgs-fmt;
 
         devShell = pkgs.mkShell {
-          buildInputs = [
-            projectCrate
+          nativeBuildInputs = [
+          ] ++ lib.optionals stdenv.isLinux [
+            pkgs.pkg-config
+          ];
 
+          buildInputs = [
             (rustVersion.override {
               extensions = [ "rust-src" "rustfmt" ];
             })
             pkgs.rust-analyzer
-
-            pkgs.pkg-config
+            pkgs.openssl
 
             pkgs.treefmt
           ];
