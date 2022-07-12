@@ -8,28 +8,56 @@
   outputs = { self, nixpkgs, flake-utils, rust-overlay, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
-        rustVersion = pkgs.rust-bin.stable.latest.default;
 
+        lib = pkgs.lib;
+        stdenv = pkgs.stdenv;
+
+        apple_sdk = pkgs.darwin.apple_sdk;
+
+        overlays = [ (import rust-overlay) ];
+
+        rustVersion = pkgs.rust-bin.stable.latest.default;
         rustPlatform = pkgs.makeRustPlatform {
           cargo = rustVersion;
           rustc = rustVersion;
         };
 
         projectCrate = rustPlatform.buildRustPackage {
-          src = "./.";
+          name = "passport_scrape";
+          version = "0.1.0";
 
-          cargoLock.lockFile = "./Cargo.lock";
+          src = ./.;
+
+          buildInputs = [
+            pkgs.openssl
+          ] ++ lib.optionals stdenv.isDarwin [ apple_sdk.frameworks.Cocoa ];
+
+          NIX_CFLAGS_COMPILE = [ ] ++ lib.optionals stdenv.isDarwin [
+            # disable modules, otherwise we get redeclaration errors
+            "-fno-modules"
+            # link AppKit since we don't get it from modules now
+            "-framework"
+            "Cocoa"
+          ];
+
+          cargoLock.lockFile = ./Cargo.lock;
         };
-      in {
+      in
+      {
+        defaultPackage = projectCrate;
+
+        formatter = pkgs.nixpkgs-fmt;
+
         devShell = pkgs.mkShell {
           buildInputs = [
+            projectCrate
+
             (rustVersion.override {
               extensions = [ "rust-src" "rustfmt" ];
             })
             pkgs.rust-analyzer
-            pkgs.openssl
+
             pkgs.pkg-config
 
             pkgs.treefmt
